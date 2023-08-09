@@ -1,0 +1,748 @@
+--[[
+ *
+ *  Singe 2 Frontend
+ *  Copyright (C) 2006-2020 Scott Duensing <scott@kangaroopunch.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ *
+ *
+--]]
+
+
+dofile("Singe/Framework.singe")
+sndmap  = soundLoad("KarisFramework/Media/Sound/music.wav")
+sndblip = soundLoad("KarisFramework/Media/Sound/blip.wav")
+sndswoosh = soundLoad("KarisFramework/Media/Sound/swoosh.wav")
+sndHandle = ""
+bQuit = false
+heartbeat = false
+blinkSecs = 0
+lastBlinkSecs = 0
+
+lfs = require("lfs")
+
+if vldpGetWidth()/vldpGetHeight() > 1.4 then
+
+	TEXT_W = 900
+	BOX_X = 815
+	BOX_Y = 25
+	BOXM_X = 1300
+	SHIFT_X = 0
+	SHIFT_Y = 0
+	LINE_LIM = 6
+	bLarge = true
+
+else
+
+	TEXT_W = 420
+	BOX_X = 575
+	BOX_Y = 25
+	BOXM_X = 1070
+	SHIFT_X = 115
+	SHIFT_Y = 240
+	LINE_LIM = 11 
+	bLarge = false
+
+end
+
+function blinkTimer(thisMS)
+
+	-- Function blinks every second.
+
+	blinkSecs = os.clock()
+	
+	if bPause then
+	
+		lastBlinkSecs = blinkSecs
+		
+	else
+
+		if (blinkSecs - lastBlinkSecs > thisMS) then
+			heartbeat = not heartbeat
+			lastBlinkSecs = blinkSecs
+
+		end
+		
+	end	
+	
+end
+
+function compareTitles(a, b)
+
+	return a.TITLE < b.TITLE
+
+end
+
+
+function loadGameAssets(firstGame)
+
+	if not firstGame then
+	
+		spriteUnload(SPRITE_BOX)
+		spriteUnload(SPRITE_MARQUEE)
+		videoUnload(VIDEO_ATTRACT)
+		
+		for _, handle in ipairs(TEXT_SPRITE_LIST) do
+		
+			if handle >= 0 then
+				spriteUnload(handle)
+			end
+		
+		end
+		
+		TEXT_SPRITE_LIST = {}
+	
+	end
+	
+	SPRITE_MARQUEE = spriteLoad(GAME_LIST[GAME_SELECTED].MARQUEE)
+	SPRITE_BOX = spriteLoad(GAME_LIST[GAME_SELECTED].POSTER)
+	SPRITE_SCREEN = spriteLoad("KarisFramework/Media/Pictures/screen.png")
+	SPRITE_GUN = spriteLoad("KarisFramework/Media/Pictures/gun.png")
+	VIDEO_ATTRACT = videoLoad(GAME_LIST[GAME_SELECTED].ATTRACT)
+	videoPlay(VIDEO_ATTRACT)
+	videoSeek(VIDEO_ATTRACT, GAME_LIST[GAME_SELECTED].ATTRACT_START)
+	videoSetVolume(VIDEO_ATTRACT, 0, 0)
+	
+	-- Build text sprites
+	local textBox = GAME_LIST[GAME_SELECTED].DESCRIPTION
+		
+	wrapText(textBox, TEXT_W)
+
+	TEXT_LINE_COUNT = utilGetTableSize(TEXT_SPRITE_LIST)
+	TEXT_LINE_TOP   = 1
+
+end
+
+function ColorMe()
+
+	if GAME_LIST[GAME_SELECTED].SKIN == "RED" then
+
+		if GAME_LIST[GAME_SELECTED].NAME2 == "" then
+
+			discSkipToFrame(DISC_GRID_MENURED)
+
+		else
+
+			discSkipToFrame(DISC_GRID_MENURED+70)
+
+		end
+
+	elseif GAME_LIST[GAME_SELECTED].SKIN == "BLUE" then
+
+		if GAME_LIST[GAME_SELECTED].NAME2 == "" then
+
+			discSkipToFrame(DISC_GRID_MENUBLUE)
+
+		else
+
+			discSkipToFrame(DISC_GRID_MENUBLUE+70)
+
+		end
+
+	elseif GAME_LIST[GAME_SELECTED].SKIN == "YELLOW" then
+
+		if GAME_LIST[GAME_SELECTED].NAME2 == "" then
+
+			discSkipToFrame(DISC_GRID_MENUYEL)
+
+		else
+
+			discSkipToFrame(DISC_GRID_MENUYEL+70)
+
+		end
+
+	elseif GAME_LIST[GAME_SELECTED].SKIN == "PURPLE" then
+
+		if GAME_LIST[GAME_SELECTED].NAME2 == "" then
+
+			discSkipToFrame(DISC_GRID_MENUPUR)
+
+		else
+
+			discSkipToFrame(DISC_GRID_MENUPUR+70)
+
+		end
+
+	elseif GAME_LIST[GAME_SELECTED].SKIN == "ORANGE" then
+
+		if GAME_LIST[GAME_SELECTED].NAME2 == "" then
+
+			discSkipToFrame(DISC_GRID_MENUORG)
+
+		else
+
+			discSkipToFrame(DISC_GRID_MENUORG+70)
+
+		end
+
+	elseif GAME_LIST[GAME_SELECTED].SKIN == "BLACK" then
+
+		if GAME_LIST[GAME_SELECTED].NAME2 == "" then
+
+			discSkipToFrame(DISC_GRID_MENUBLK)
+
+		else
+
+			discSkipToFrame(DISC_GRID_MENUBLK+70)
+
+		end
+
+	else
+
+		if GAME_LIST[GAME_SELECTED].NAME2 == "" then
+
+			discSkipToFrame(DISC_GRID_MENUGREEN)
+
+		else
+
+			discSkipToFrame(DISC_GRID_MENUGREEN+70)
+
+		end
+
+	end	
+
+end
+
+function getMiddle(thisPhrase)
+
+	local x = 0
+	local y = 0
+	
+	x = 1490 - spriteGetWidth(fontToSprite(thisPhrase)) * 0.5
+	
+	return x
+
+end
+
+function getMiddle2(thisPhrase)
+
+	local x = 0
+	local y = 0
+	
+	x = 366 - spriteGetWidth(fontToSprite(thisPhrase)) * 0.5
+	
+	return x
+
+end
+
+function getMiddle3(thisPhrase)
+
+	local x = 0
+	local y = 0
+	
+	x = 740 - spriteGetWidth(fontToSprite(thisPhrase)) * 0.5
+	
+	return x
+
+end
+
+function onInputPressed(what)
+
+	-- Are we displaying the grid background?
+	if ((discGetFrame() >= DISC_GRID_MENUGREEN) and (discGetFrame() < DISC_GRID_MENUEND)) then
+
+		if what == SWITCH_UP then
+			
+			if TEXT_LINE_TOP > 1 then TEXT_LINE_TOP = TEXT_LINE_TOP - 1	end
+		
+		end
+
+		if what == SWITCH_DOWN then
+		
+			if TEXT_LINE_TOP < TEXT_LINE_COUNT - TEXT_LINE_LIMIT + 1 then TEXT_LINE_TOP = TEXT_LINE_TOP + 1 end
+
+		end
+
+		if what == SWITCH_LEFT then
+			
+			GAME_SELECTED = GAME_SELECTED - 1
+			
+			if GAME_SELECTED < 1 then GAME_SELECTED = GAME_COUNT end
+			
+			SHUTDOWN_FROM_PUSH = false
+
+			ColorMe()
+			
+			loadGameAssets(false)
+			soundPlay(sndblip)
+
+		end
+
+		if what == SWITCH_RIGHT then
+
+			GAME_SELECTED = GAME_SELECTED + 1
+
+			if GAME_SELECTED > GAME_COUNT then GAME_SELECTED = 1 end
+			
+			SHUTDOWN_FROM_PUSH = false
+			
+			ColorMe()
+			
+			loadGameAssets(false)
+			soundPlay(sndblip)
+
+		end
+
+		if what == SWITCH_BUTTON1 then
+
+			-- Start next game
+			SHUTDOWN_FROM_PUSH = true
+			soundStop(sndHandle)
+			discSkipToFrame(DISC_GRID_GAMESTART)
+			soundPlay(sndswoosh)
+
+		end
+
+		if what == SWITCH_BUTTON2 then
+
+			if GAME_LIST[GAME_SELECTED].SCRIPT2 ~= "" then
+
+				GAME_LIST[GAME_SELECTED].SCRIPT = GAME_LIST[GAME_SELECTED].SCRIPT2
+
+			elseif GAME_LIST[GAME_SELECTED].VIDEO2 ~= "" then	
+
+				GAME_LIST[GAME_SELECTED].VIDEO = GAME_LIST[GAME_SELECTED].VIDEO2
+
+			end
+
+			-- Start next game
+			SHUTDOWN_FROM_PUSH = true
+			soundStop(sndHandle)
+			discSkipToFrame(DISC_GRID_GAMESTART)
+			soundPlay(sndswoosh)
+
+		end
+
+		if what == SWITCH_CONSOLE then
+
+			bQuit = true			
+			discSkipToFrame(139)
+			discPause()
+			
+		end
+
+	elseif (discGetFrame() == 139) then
+
+		if what == SWITCH_BUTTON1 then
+			
+			singeQuit()
+
+		end
+
+		if what == SWITCH_BUTTON2 then
+
+			soundPlay(sndswoosh)
+			bQuit = false
+			discPlay()
+
+		end 
+
+	end
+
+end
+
+function onSoundCompleted(intWhich)
+
+	if intWhich == sndHandle and not SHUTDOWN_FROM_PUSH then 
+
+		sndHandle = ""
+
+	end
+	
+end
+
+function onOverlayUpdate()
+
+	local x = 0
+	local y = 0
+	local c = 0
+	local t = 0
+
+	overlayClear()
+
+	if (discGetFrame() == DISC_GRID_GAMESTART-1) then
+
+		ColorMe()
+
+
+	elseif (discGetFrame() == 139) and bQuit then
+
+		blinkTimer(0.5)
+
+		fontSelect(freeFont2)
+		colorForeground(0, 255, 0)
+		
+		if heartbeat then
+
+			fontPrint(490, 480, "QUIT?")
+		
+		end
+
+		colorForeground(255, 255, 255)
+		fontPrint(440, 580, "Button 1: YES")
+		fontPrint(440, 630, "Button 2: NO")
+
+	-- Are we displaying the grid background?
+	elseif (discGetFrame() >= DISC_GRID_MENUGREEN) and (discGetFrame() < DISC_GRID_MENUEND) then
+
+		discPause()
+
+		-- 3D image
+		spriteDraw(BOXM_X, BOX_Y, SPRITE_BOX)
+
+		-- Marquee Image
+		x = 138
+		y = 0
+		spriteDraw(x, y, SPRITE_MARQUEE)
+
+		if sndHandle == "" then sndHandle =soundPlay(sndmap) end
+		
+		-- Attract Mode Video
+
+		videoDraw(VIDEO_ATTRACT, VIDEO_X, VIDEO_Y, VIDEO_X + VIDEO_W, VIDEO_Y + VIDEO_H)
+
+		if videoGetFrame(VIDEO_ATTRACT) > GAME_LIST[GAME_SELECTED].ATTRACT_END then videoSeek(VIDEO_ATTRACT, GAME_LIST[GAME_SELECTED].ATTRACT_START) end
+
+		-- Screen image
+		x = 195
+		y = 315
+		spriteDraw(x, y, SPRITE_SCREEN)
+			
+		-- Game Description
+		colorForeground(255, 255, 255, 255)
+		
+		y = TEXT_Y
+		c = 0
+		t = 1
+		
+		for _, handle in ipairs(TEXT_SPRITE_LIST) do
+		
+			-- Find height of font and number of lines that fit
+			if TEXT_LINE_HEIGHT == 0 then
+		
+				if (handle >= 0) then
+		
+					TEXT_LINE_HEIGHT = spriteGetHeight(handle)
+					TEXT_LINE_LIMIT = LINE_LIM
+							
+				end
+		
+			end
+		
+			-- Only display what is visible in the window
+			if (t >= TEXT_LINE_TOP) then
+		
+				if (c < TEXT_LINE_LIMIT) then
+		
+					if (handle >= 0) then spriteDraw(TEXT_X, y, handle) end
+					y = y + TEXT_LINE_HEIGHT + 1
+					c = c + 1
+
+				end
+
+			end
+
+			t = t + 1
+		
+		end
+
+		if GAME_LIST[GAME_SELECTED].GENRE == "SHOOTER" then
+
+			-- Gun image
+			x = 566
+			y = 829
+			spriteDraw(x, y, SPRITE_GUN)
+
+		end	
+
+		if GAME_LIST[GAME_SELECTED].NAME2 ~= "" then
+
+			if bLarge then
+
+				fontSelect(freeFont2)
+				fontPrint(getMiddle(GAME_LIST[GAME_SELECTED].NAME), 835, GAME_LIST[GAME_SELECTED].NAME)
+				fontPrint(getMiddle(GAME_LIST[GAME_SELECTED].NAME2), 995, GAME_LIST[GAME_SELECTED].NAME2)
+
+			else
+
+				fontSelect(freeFont3)
+				fontPrint(getMiddle2(GAME_LIST[GAME_SELECTED].NAME), 960, GAME_LIST[GAME_SELECTED].NAME)
+				fontPrint(getMiddle3(GAME_LIST[GAME_SELECTED].NAME2), 960, GAME_LIST[GAME_SELECTED].NAME2)
+
+			end
+
+		end
+
+		fontSelect(freeFont)
+		fontPrint(SHIFT_X+TEXT_X, SHIFT_Y+680, "Year: " .. GAME_LIST[GAME_SELECTED].YEAR)
+		fontPrint(SHIFT_X+TEXT_X, SHIFT_Y+704, "Genre: " .. GAME_LIST[GAME_SELECTED].GENRE)
+		fontPrint(SHIFT_X+TEXT_X, SHIFT_Y+728, "Difficulty: " .. GAME_LIST[GAME_SELECTED].DIFFICULTY)
+		fontPrint(SHIFT_X+TEXT_X, SHIFT_Y+752, "Resolution: " .. GAME_LIST[GAME_SELECTED].RESOLUTION)
+		fontPrint(SHIFT_X+TEXT_X, SHIFT_Y+776, "Developer: " .. GAME_LIST[GAME_SELECTED].DEVELOPER)
+		fontPrint(SHIFT_X+TEXT_X, SHIFT_Y+800, "Publisher: " .. GAME_LIST[GAME_SELECTED].PUBLISHER)
+
+		
+	elseif (discGetFrame() > DISC_GRID_GAMESTART) and (discGetFrame() < DISC_GRID_GAMEOVER-1) then	
+
+		-- 3D image
+		spriteDraw(BOX_X, BOX_Y, SPRITE_BOX)
+
+	elseif (discGetFrame() == DISC_GRID_GAMEOVER-1) then
+
+		-- 3D image
+		spriteDraw(BOX_X, BOX_Y, SPRITE_BOX)
+		
+		scriptPush(GAME_LIST[GAME_SELECTED])
+
+	elseif (discGetFrame() >= DISC_GRID_GAMEOVER) and (discGetFrame() <  DISC_GRID_MENUGREEN-1) then
+
+		-- 3D image
+		x = 815
+		y = 25
+		spriteDraw(BOX_X, BOX_Y, SPRITE_BOX)
+
+		
+	elseif (discGetFrame() == DISC_GRID_MENUGREEN-1) then
+
+		ColorMe()
+		
+	end
+
+	return(OVERLAY_UPDATED)
+
+end
+
+
+function onShutdown()
+
+	saveConfig(not SHUTDOWN_FROM_PUSH)
+
+end
+
+
+function saveConfig(showIntro)
+	
+	if GAME_COUNT > 0 then
+		
+		-- Save what game we're currently viewing
+		local cfg = io.open(CONFIG_FILE, "w")
+		cfg:write("GAME_SELECTED = " .. GAME_SELECTED .. "\n")
+		cfg:write("SHOW_INTRO = " .. tostring(showIntro) .. "\n")
+		cfg:close()
+	
+	end
+
+end
+
+
+function wrapText(text, maxWidth)
+	
+	local words      =  {}
+	local toWrap     =  ""
+	local line       =  ""
+	local lastLine   =  ""
+	local fragment   =  ""
+	local doBreak    =  false
+	local spriteTemp = -1
+	local trimBreak  =  utilTrim(WRAP_BREAK)
+
+	-- Break input into words
+	toWrap = text .. WRAP_BREAK
+	
+	for w in toWrap:gmatch("%S+") do
+	
+		words[#words+1] = w
+	
+	end
+
+	-- Iterate over words and try to fit them in the space given
+	for _, word in ipairs(words) do
+
+			-- Is this an intentional break?
+			if word == trimBreak then
+			
+				doBreak = true
+			
+			else
+			
+				-- Add this word to the line
+				line = utilTrim(line .. " " .. word)
+			
+				-- Do we even have text?
+				if string.len(line) > 0 then
+			
+					-- Is the line too long to fit now?
+					spriteTemp = fontToSprite(line)
+			
+					if spriteGetWidth(spriteTemp) > maxWidth then
+			
+						doBreak  = true
+						fragment = word
+						line     = lastLine
+			
+					else
+			
+						fragment = ""
+			
+					end
+			
+					spriteUnload(spriteTemp)
+			
+				end
+			
+			end
+			
+			lastLine = line
+
+			-- Did we find a break?
+			if doBreak then
+			
+				-- Did we get anything to print?
+			
+				if string.len(line) > 0 then
+			
+					table.insert(TEXT_SPRITE_LIST, fontToSprite(line))
+			
+				else
+			
+					-- Blank line
+					table.insert(TEXT_SPRITE_LIST, -1)
+			
+				end
+			
+				-- Reset for next line
+				line     = fragment
+				fragment = ""
+				doBreak  = false
+			
+			end
+
+	end
+
+end
+
+-- Search for games.dat files in subdirectories
+GAME_LIST     = {}
+GAME_COUNT    = 0
+
+for dir in lfs.dir(".") do
+	
+	if dir ~= "." and dir ~= ".." then
+	
+		local dirattr = lfs.attributes(dir)
+	
+		if dirattr.mode == "directory" then
+	
+			for file in lfs.dir(dir .. "/menu") do
+	
+				if file == "games.dat" and dir ~= "Blank" then
+	
+					-- Load games.dat
+					dofile(dir .. "/menu/games.dat")
+	
+					for key,value in pairs(GAMES) do
+	
+						table.insert(GAME_LIST, value)
+						GAME_COUNT = GAME_COUNT + 1
+	
+					end
+	
+					GAMES = {}
+	
+				end
+	
+			end
+	
+		end
+	
+	end
+
+end
+
+table.sort(GAME_LIST, compareTitles)
+
+if GAME_COUNT == 0 then
+
+	debugPrint("No games found!  Exiting.")
+	singeQuit()
+
+else
+
+	overlaySetResolution(vldpGetWidth(), vldpGetHeight())
+
+	freeFont = fontLoad("KarisFramework/Media/Font/BRLNSR.TTF", 22)
+	freeFont2 = fontLoad("KarisFramework/Media/Font/BRLNSDB.TTF", 40)
+	freeFont3 = fontLoad("KarisFramework/Media/Font/BRLNSDB.TTF", 30)
+	
+	fontQuality(FONT_QUALITY_BLENDED)
+	fontSelect(freeFont)
+
+	DISC_GRID_GAMESTART = 143
+	DISC_GRID_GAMEOVER = 191
+	DISC_GRID_MENUGREEN = 239
+	DISC_GRID_MENURED = 249
+	DISC_GRID_MENUBLUE = 259
+	DISC_GRID_MENUYEL = 269
+	DISC_GRID_MENUPUR = 279
+	DISC_GRID_MENUORG = 289
+	DISC_GRID_MENUBLK = 299
+	DISC_GRID_MENUEND = 376	
+
+	VIDEO_W   = 700
+	VIDEO_H   = 525
+	VIDEO_X   = 202
+	VIDEO_Y   = 318
+
+	TEXT_X    = 1000
+	TEXT_Y    = 490
+
+	WRAP_BREAK       = " [!wb!] "
+	TEXT_LINE_TOP    = 1
+	TEXT_LINE_LIMIT  = 0
+	TEXT_LINE_COUNT  = 0
+	TEXT_LINE_HEIGHT = 0
+	TEXT_SPRITE_LIST = {}
+
+	SHUTDOWN_FROM_PUSH = false
+
+	-- Load configuration
+	SHOW_INTRO = true
+	CONFIG_FILE = singeGetDataPath() .. "menu.dat"
+	local confattr = lfs.attributes(CONFIG_FILE)
+	
+	if confattr then
+		
+		dofile(CONFIG_FILE)
+		if GAME_SELECTED > GAME_COUNT then GAME_SELECTED = GAME_COUNT end
+	
+	else
+	
+		GAME_SELECTED = 1
+	
+	end
+
+	discPlay()
+
+	if (not SHOW_INTRO) then
+		
+		soundPlay(sndswoosh)
+		discSkipToFrame(DISC_GRID_GAMEOVER)
+		
+	end
+
+	-- Prime the pump
+	loadGameAssets(true)
+
+end
